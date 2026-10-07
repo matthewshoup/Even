@@ -31,12 +31,22 @@ public:
    // Keep the interstage clean: the dedicated H2 block creates the desired even harmonic.
    float d=juce::jmap(drive,0.0f,1.0f,1.0f,8.0f);
    // PURE H2: centered square-law term. DC servo removes x^2 DC while preserving 2f.
-   float sq=in*in;dc+=0.0007f*(sq-dc);float even=sq-dc;
-   float pureH2=in+even*(h2*2.8f);
+   float sq=in*in;
+   // Fast DC servo: x^2 contains DC + 2f. Remove DC and retain the even-order AC term.
+   dc+=0.0007f*(sq-dc);
+   float even=sq-dc;
+   // II control is intentionally aggressive near the top. At 11 it becomes an H2 generator,
+   // rather than merely asking another saturator to clip harder.
+   float h2Curve=h2*h2*(3.0f+9.0f*h2);
+   float pureH2=in+even*h2Curve;
    // Tube-inspired asymmetric transfer. Bias and unequal positive/negative curvature favor H2.
    float z=in*d+(bias-.5f)*1.1f;float pos=1.0f+asym*3.5f,neg=1.0f+(.15f+1.0f-asym)*1.1f;
    float tube=z>=0?std::tanh(z*pos)/pos:std::tanh(z*neg)/neg;
-   float generated=tube+even*h2*1.4f;
+   // Blend toward a clean linear carrier as II rises, then add the isolated even component.
+   // This prevents H3/H5 from exploding with H2.
+   float nonlinearAmount=(1.0f-h2*.72f);
+   float carrier=in+(tube-in)*nonlinearAmount;
+   float generated=carrier+even*h2Curve;
    float y=pure?pureH2:generated;
    // 12BH7-inspired cathode follower: low gain, higher current, soft current limiting.
    follower12+=0.0011f*(y-follower12);
@@ -46,7 +56,11 @@ public:
    // Warmth: stateful HF smoothing; Iron: flux-memory saturation.
    float a=juce::jmap(warmth,0.0f,1.0f,.82f,.22f);lp+=a*(y-lp);y=juce::jmap(warmth,y,lp);
    ironState+=0.0012f*(y-ironState);float id=1.0f+iron*5.0f;y=std::tanh((y+ironState*iron*.25f)*id)/std::tanh(id);
-   if(solo)y-=in;return y;
+   // Energy compensation keeps the maximum-H2 end from winning by loudness alone.
+   float comp=1.0f/std::sqrt(1.0f+h2Curve*h2Curve*0.10f);
+   y*=comp;
+   if(solo)y-=in*comp;
+   return y;
  }
 private:double sampleRate=44100;float dc=0,lp=0,ironState=0,cathode6=0,sag6=0,dc6=0,follower12=0;
  static float softplus(float x){if(x>12.0f)return x;if(x<-12.0f)return std::exp(x);return std::log1p(std::exp(x));}
