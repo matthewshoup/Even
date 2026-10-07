@@ -5,8 +5,10 @@ class H2Engine{
 public:
  void prepare(double sr){sampleRate=sr;dc=0;lp=0;ironState=0;}
  void reset(){dc=lp=ironState=0;}
- float process(float x,float drive,float h2,float asym,float bias,float warmth,float iron,bool pure,bool solo){
-   float in=x;float d=juce::jmap(drive,0.0f,1.0f,1.0f,14.0f);
+ float process(float x,float drive,float h2,float asym,float bias,float warmth,float iron,bool pure,bool solo,bool sn7On,float sn7Drive,float sn7Bias){
+   float in=x;
+   if(sn7On){ float sd=1.0f+sn7Drive*7.0f; float sb=(sn7Bias-.5f)*.65f; cathode6+=0.00045f*(std::abs(in)*sd-cathode6); sb-=cathode6*.07f; float z6=in*sd+sb; in=(z6>=0?std::tanh(z6*1.32f)/1.32f:std::tanh(z6*.94f)/.94f)-sb*.35f; }
+   float d=juce::jmap(drive,0.0f,1.0f,1.0f,14.0f);
    // PURE H2: centered square-law term. DC servo removes x^2 DC while preserving 2f.
    float sq=in*in;dc+=0.0007f*(sq-dc);float even=sq-dc;
    float pureH2=in+even*(h2*2.8f);
@@ -20,5 +22,5 @@ public:
    ironState+=0.0012f*(y-ironState);float id=1.0f+iron*5.0f;y=std::tanh((y+ironState*iron*.25f)*id)/std::tanh(id);
    if(solo)y-=in;return y;
  }
-private:double sampleRate=44100;float dc=0,lp=0,ironState=0;
+private:double sampleRate=44100;float dc=0,lp=0,ironState=0,cathode6=0;
 };
