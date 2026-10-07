@@ -3,7 +3,7 @@
 #include <cmath>
 class H2Engine{
 public:
- void prepare(double sr){sampleRate=sr;dc=0;lp=0;ironState=0;cathode6=0;sag6=0;dc6=0;cathode12=0;follower12=0;}
+ void prepare(double sr){sampleRate=sr;dc=0;lp=0;ironState=0;cathode6=0;sag6=0;dc6=0;follower12=0;}
  void reset(){dc=lp=ironState=0;}
  float process(float x,float drive,float h2,float asym,float bias,float warmth,float iron,bool pure,bool solo,bool sn7On,float sn7Drive,float sn7Bias){
    float in=x;
@@ -28,15 +28,8 @@ public:
      dc6+=0.00018f*(plate-dc6);
      in=(plate-dc6)*0.34f;
    }
-   // 12AX7 harmonic-driver stage: high-mu, intentionally asymmetric.
-   float axBias=-0.62f-cathode12*.16f;
-   float ax=in*(1.0f+drive*4.0f)+axBias;
-   float axPos=std::tanh(ax*2.15f)/2.15f;
-   float axNeg=std::tanh(ax*1.42f)/1.42f;
-   float axOut=ax>=0.0f?axPos:axNeg;
-   cathode12+=0.00022f*(std::abs(axOut)-cathode12);
-   in=(axOut-axBias*.38f)*0.92f;
-   float d=juce::jmap(drive,0.0f,1.0f,1.0f,14.0f);
+   // Keep the interstage clean: the dedicated H2 block creates the desired even harmonic.
+   float d=juce::jmap(drive,0.0f,1.0f,1.0f,8.0f);
    // PURE H2: centered square-law term. DC servo removes x^2 DC while preserving 2f.
    float sq=in*in;dc+=0.0007f*(sq-dc);float even=sq-dc;
    float pureH2=in+even*(h2*2.8f);
@@ -55,6 +48,6 @@ public:
    ironState+=0.0012f*(y-ironState);float id=1.0f+iron*5.0f;y=std::tanh((y+ironState*iron*.25f)*id)/std::tanh(id);
    if(solo)y-=in;return y;
  }
-private:double sampleRate=44100;float dc=0,lp=0,ironState=0,cathode6=0,sag6=0,dc6=0,cathode12=0,follower12=0;
+private:double sampleRate=44100;float dc=0,lp=0,ironState=0,cathode6=0,sag6=0,dc6=0,follower12=0;
  static float softplus(float x){if(x>12.0f)return x;if(x<-12.0f)return std::exp(x);return std::log1p(std::exp(x));}
 };
