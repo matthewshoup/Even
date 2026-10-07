@@ -1,15 +1,26 @@
-name: macOS Universal Build
+name: macOS VST3 Build
 on: [workflow_dispatch, push]
+
 jobs:
- build:
-  runs-on: macos-15
-  steps:
-   - uses: actions/checkout@v4
-   - name: Configure
-     run: cmake -S . -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
-   - name: Build
-     run: cmake --build build --config Release --target Even_VST3 Even_AU Even_Standalone
-   - uses: actions/upload-artifact@v4
-     with:
-      name: Even-macOS-universal
-      path: build/Even_artefacts/Release/
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build VST3
+        run: cmake --build build --config Release --target Even_VST3
+
+      - name: Ad-hoc code sign VST3
+        run: |
+          set -euo pipefail
+          VST3="build/Even_artefacts/Release/VST3/EVEN.vst3"
+          codesign --force --deep --sign - "$VST3"
+          codesign --verify --deep --strict --verbose=2 "$VST3"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Even-VST3-macOS-universal
+          path: build/Even_artefacts/Release/VST3/EVEN.vst3
