@@ -3,11 +3,31 @@
 #include <cmath>
 class H2Engine{
 public:
- void prepare(double sr){sampleRate=sr;dc=0;lp=0;ironState=0;}
+ void prepare(double sr){sampleRate=sr;dc=0;lp=0;ironState=0;cathode6=0;sag6=0;dc6=0;}
  void reset(){dc=lp=ironState=0;}
  float process(float x,float drive,float h2,float asym,float bias,float warmth,float iron,bool pure,bool solo,bool sn7On,float sn7Drive,float sn7Bias){
    float in=x;
-   if(sn7On){ float sd=1.0f+sn7Drive*7.0f; float sb=(sn7Bias-.5f)*.65f; cathode6+=0.00045f*(std::abs(in)*sd-cathode6); sb-=cathode6*.07f; float z6=in*sd+sb; in=(z6>=0?std::tanh(z6*1.32f)/1.32f:std::tanh(z6*.94f)/.94f)-sb*.35f; }
+   if(sn7On){
+     // 6SN7-inspired grounded-cathode voltage stage.
+     // Drive is mapped to grid swing; positive grid excursions load the source.
+     float grid=in*(1.0f+sn7Drive*8.0f);
+     float biasV=-4.5f+(sn7Bias-.5f)*4.0f-cathode6*1.6f;
+     float vgk=grid+biasV;
+     float gridCurrent=softplus((vgk+0.35f)*5.0f)*0.018f;
+     grid-=gridCurrent*(0.7f+sn7Drive*1.8f);
+     vgk=grid+biasV;
+     // Smooth Koren-inspired triode-current surrogate. B+ droops with recent current.
+     float bplus=300.0f-sag6*72.0f;
+     float mu=20.0f;
+     float effective=softplus((vgk+bplus/mu)*0.42f);
+     float plateCurrent=effective*effective*0.0028f;
+     sag6+=0.00010f*(juce::jlimit(0.0f,1.0f,plateCurrent*12.0f)-sag6);
+     cathode6+=0.00028f*(juce::jlimit(0.0f,1.0f,plateCurrent*7.5f)-cathode6);
+     float plate=-(plateCurrent*82.0f);
+     // Coupling capacitor / DC blocker preserves asymmetric AC curvature.
+     dc6+=0.00018f*(plate-dc6);
+     in=(plate-dc6)*0.34f;
+   }
    float d=juce::jmap(drive,0.0f,1.0f,1.0f,14.0f);
    // PURE H2: centered square-law term. DC servo removes x^2 DC while preserving 2f.
    float sq=in*in;dc+=0.0007f*(sq-dc);float even=sq-dc;
@@ -22,5 +42,6 @@ public:
    ironState+=0.0012f*(y-ironState);float id=1.0f+iron*5.0f;y=std::tanh((y+ironState*iron*.25f)*id)/std::tanh(id);
    if(solo)y-=in;return y;
  }
-private:double sampleRate=44100;float dc=0,lp=0,ironState=0,cathode6=0;
+private:double sampleRate=44100;float dc=0,lp=0,ironState=0,cathode6=0,sag6=0,dc6=0;
+ static float softplus(float x){if(x>12.0f)return x;if(x<-12.0f)return std::exp(x);return std::log1p(std::exp(x));}
 };
