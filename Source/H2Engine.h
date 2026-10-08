@@ -53,7 +53,14 @@ public:
    y=y+follower12*.035f;
    // Warmth: stateful HF smoothing; Iron: flux-memory saturation.
    float a=juce::jmap(warmth,0.0f,1.0f,.82f,.22f);lp+=a*(y-lp);y=juce::jmap(warmth,y,lp);
-   ironState+=0.0012f*(y-ironState);float id=1.0f+iron*5.0f;y=std::tanh((y+ironState*iron*.25f)*id)/std::tanh(id);
+   ironState+=0.0012f*(y-ironState);
+   // Preserve transformer flux memory while progressively removing the symmetric
+   // tanh saturation that regenerates H3. At high II, IRON becomes mostly memory/color.
+   float ironInput=y+ironState*iron*.25f;
+   float ironNonlinear=iron*(1.0f-h2)*(1.0f-h2);
+   float id=1.0f+ironNonlinear*5.0f;
+   float ironSat=std::tanh(ironInput*id)/std::tanh(id);
+   y=juce::jmap(ironNonlinear,ironInput,ironSat);
    // Energy compensation keeps the maximum-H2 end from winning by loudness alone.
    float comp=1.0f/std::sqrt(1.0f+h2Curve*h2Curve*0.10f);
    y*=comp;
