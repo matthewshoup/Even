@@ -10,11 +10,13 @@ public:
    if(sn7On){
      // 6SN7-inspired grounded-cathode voltage stage.
      // Drive is mapped to grid swing; positive grid excursions load the source.
-     float grid=in*(1.0f+sn7Drive*8.0f);
-     float biasV=-4.5f+(sn7Bias-.5f)*4.0f-cathode6*1.6f;
+     // Keep the 6SN7 in its broad, low-odd-order operating region. The previous
+     // grid swing pushed the stage far enough to regenerate H3 before the H2 block.
+     float grid=in*(1.0f+sn7Drive*4.5f);
+     float biasV=-5.15f+(sn7Bias-.5f)*2.8f-cathode6*1.35f;
      float vgk=grid+biasV;
      float gridCurrent=softplus((vgk+0.35f)*5.0f)*0.018f;
-     grid-=gridCurrent*(0.7f+sn7Drive*1.8f);
+     grid-=gridCurrent*(0.55f+sn7Drive*1.15f);
      vgk=grid+biasV;
      // Smooth Koren-inspired triode-current surrogate. B+ droops with recent current.
      float bplus=300.0f-sag6*72.0f;
