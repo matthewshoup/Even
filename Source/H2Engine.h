@@ -39,20 +39,18 @@ public:
    // rather than merely asking another saturator to clip harder.
    float h2Curve=h2*h2*(3.0f+9.0f*h2);
    float pureH2=in+even*h2Curve;
-   // Tube-inspired asymmetric transfer. Bias and unequal positive/negative curvature favor H2.
+   // Tube-inspired asymmetric transfer. The II control crossfades away from the
+   // odd-rich saturating carrier and toward a deliberately even-order generator.
    float z=in*d+(bias-.5f)*1.1f;float pos=1.0f+asym*3.5f,neg=1.0f+(.15f+1.0f-asym)*1.1f;
    float tube=z>=0?std::tanh(z*pos)/pos:std::tanh(z*neg)/neg;
-   // Blend toward a clean linear carrier as II rises, then add the isolated even component.
-   // This prevents H3/H5 from exploding with H2.
-   float nonlinearAmount=(1.0f-h2*.72f);
-   float carrier=in+(tube-in)*nonlinearAmount;
+   float tubeBlend=juce::jlimit(0.0f,1.0f,(1.0f-h2)*(1.0f-h2)*0.55f);
+   float carrier=in+(tube-in)*tubeBlend;
    float generated=carrier+even*h2Curve;
    float y=pure?pureH2:generated;
-   // 12BH7-inspired cathode follower: low gain, higher current, soft current limiting.
+   // 12BH7-inspired follower. Keep this stage essentially linear: hard symmetric
+   // saturation here previously regenerated H3 after the H2 stage had done its job.
    follower12+=0.0011f*(y-follower12);
-   float bh=y+follower12*.08f;
-   float limit=1.15f+0.55f*(1.0f-iron);
-   y=std::tanh(bh/limit)*limit;
+   y=y+follower12*.035f;
    // Warmth: stateful HF smoothing; Iron: flux-memory saturation.
    float a=juce::jmap(warmth,0.0f,1.0f,.82f,.22f);lp+=a*(y-lp);y=juce::jmap(warmth,y,lp);
    ironState+=0.0012f*(y-ironState);float id=1.0f+iron*5.0f;y=std::tanh((y+ironState*iron*.25f)*id)/std::tanh(id);
