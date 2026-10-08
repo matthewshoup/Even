@@ -12,8 +12,8 @@ public:
      // Drive is mapped to grid swing; positive grid excursions load the source.
      // Keep the 6SN7 in its broad, low-odd-order operating region. The previous
      // grid swing pushed the stage far enough to regenerate H3 before the H2 block.
-     float grid=in*(1.0f+sn7Drive*4.5f);
-     float biasV=-5.15f+(sn7Bias-.5f)*2.8f-cathode6*1.35f;
+     float grid=in*(1.0f+sn7Drive*4.8f);
+     float biasV=-5.05f+(sn7Bias-.5f)*2.8f-cathode6*1.35f;
      float vgk=grid+biasV;
      float gridCurrent=softplus((vgk+0.35f)*5.0f)*0.018f;
      grid-=gridCurrent*(0.55f+sn7Drive*1.15f);
